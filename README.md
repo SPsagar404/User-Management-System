@@ -1,6 +1,6 @@
 # User Management System
 
-Enterprise-grade User Management System with Role-Based Access Control (RBAC), JWT authentication, event-driven architecture (RabbitMQ), built with Spring Boot 3.x and MySQL.
+Enterprise-grade User Management System with Role-Based Access Control (RBAC), JWT authentication, event-driven architecture (Apache Kafka), built with Spring Boot 3.x and MySQL.
 
 ---
 
@@ -22,12 +22,12 @@ Enterprise-grade User Management System with Role-Based Access Control (RBAC), J
 └────────┬─────────────┬───────────────────────────────┘
          │             │
     ┌────▼────┐   ┌────▼────────────────────────┐
-    │ JPA     │   │ RabbitMQ Event Publisher     │
+    │ JPA     │   │ Kafka Event Publisher        │
     │ Repos   │   │ (Registration / Login events)│
     └────┬────┘   └────┬────────────────────────┘
          │             │
     ┌────▼────┐   ┌────▼────┐
-    │ MySQL   │   │ RabbitMQ│
+    │ MySQL   │   │ Kafka   │
     └─────────┘   └─────────┘
 ```
 
@@ -39,7 +39,7 @@ Enterprise-grade User Management System with Role-Based Access Control (RBAC), J
 | **Service** | Business logic, authentication, event publishing |
 | **Repository** | Data access via Spring Data JPA |
 | **Security** | JWT generation/validation, authentication filter, RBAC |
-| **Event** | Async event publishing to RabbitMQ |
+| **Event** | Async event publishing to Apache Kafka |
 
 ---
 
@@ -51,10 +51,11 @@ Enterprise-grade User Management System with Role-Based Access Control (RBAC), J
 | Spring Security | 6.x | Authentication & authorization |
 | JWT (jjwt) | 0.12.6 | Stateless token-based auth |
 | MySQL | 8.0 | Relational database |
-| RabbitMQ | 3.x | Message broker for events |
+| Apache Kafka | 3.5.0+ | Distributed event streaming |
+| Zookeeper | 3.8.x | Distributed coordination for Kafka |
 | Hibernate | 6.x | ORM / JPA implementation |
 | Lombok | Latest | Boilerplate reduction |
-| springdoc-openapi | 2.7.0 | Swagger / OpenAPI docs |
+| springdoc-openapi | 2.6.0 | Swagger / OpenAPI docs |
 | Docker | Latest | Containerization |
 | H2 | Latest | In-memory DB for tests |
 
@@ -83,9 +84,9 @@ Enterprise-grade User Management System with Role-Based Access Control (RBAC), J
 
 ### Option 1: Local Development
 
-1. **Start MySQL & RabbitMQ** (or use Docker for infrastructure only):
+1. **Start Infrastructure** (MySQL, Zookeeper, Kafka):
    ```bash
-   docker-compose up mysql rabbitmq -d
+   docker-compose up mysql zookeeper kafka -d
    ```
 
 2. **Run the application**:
@@ -105,10 +106,11 @@ Enterprise-grade User Management System with Role-Based Access Control (RBAC), J
 docker-compose up --build
 ```
 
-This starts all three services:
+This starts all services:
 - **App**: `http://localhost:8080`
 - **MySQL**: `localhost:3306`
-- **RabbitMQ Management**: `http://localhost:15672` (guest/guest)
+- **Kafka**: `localhost:9092`
+- **Zookeeper**: `localhost:2181`
 
 ### Running Tests
 
@@ -153,12 +155,12 @@ Tests use H2 in-memory database — no external dependencies required.
 
 ## 📨 Event-Driven Architecture
 
-Events are published to **RabbitMQ** asynchronously on:
+Events are published to **Apache Kafka** asynchronously on:
 
-| Event | Routing Key | Queue |
-|-------|-------------|-------|
-| User Registration | `user.registered` | `user.registration.queue` |
-| User Login | `user.logged_in` | `user.login.queue` |
+| Event | Topic | Partition Key |
+|-------|-------|---------------|
+| User Registration | `user.registration` | `email` |
+| User Login | `user.login` | `email` |
 
 ### Event Payload
 
@@ -171,21 +173,19 @@ Events are published to **RabbitMQ** asynchronously on:
 }
 ```
 
-Exchange: `user.exchange` (Topic exchange)
-
 ---
 
 ## 📂 Project Structure
 
 ```
 src/main/java/com/usermanagement/
-├── config/          # Security, Cache, RabbitMQ, OpenAPI configs
+├── config/          # Security, Cache, Kafka, OpenAPI configs
 ├── controller/      # REST controllers
 ├── dto/
 │   ├── request/     # Request DTOs with validation
 │   └── response/    # Response DTOs
-├── entity/          # JPA entities (User, Role, AuditLog)
-├── event/           # RabbitMQ event model & publisher
+├── entity/          # JPA entities (User, Role)
+├── event/           # Kafka event model & publisher
 ├── exception/       # Custom exceptions & global handler
 ├── mapper/          # DTO mapping utilities
 ├── repository/      # Spring Data JPA repositories
@@ -202,12 +202,13 @@ src/main/java/com/usermanagement/
 | **Stateless JWT** | No server-side session storage → horizontally scalable |
 | **EAGER fetch for roles** | Roles are always needed for security context — avoids LazyInit issues |
 | **BCrypt password hashing** | Industry standard, adaptive hashing |
-| **Topic exchange** | Flexible routing for future event consumers |
+| **Apache Kafka** | High-throughput, durable, and replayable distributed log |
+| **Partitioning by Email** | Ensures all events for the same user are processed in order |
 | **@Async event publishing** | Non-blocking — registration/login latency unaffected |
-| **Manual DTO mapping** | No annotation processor dependency; MapStruct can be added later |
+| **Manual DTO mapping** | No annotation processor dependency; explicit control |
 | **H2 for tests** | Fast, zero-config test database |
-| **Multi-stage Docker build** | Smaller production image (~150MB vs ~500MB) |
-| **ROLE_ prefix convention** | Spring Security's default role-checking convention |
+| **Multi-stage Docker build** | Smaller production implementation footprint |
+| **Excluding Kafka in Tests** | Tests use mocks for `KafkaTemplate` to remain fast and standalone |
 
 ---
 
@@ -215,7 +216,7 @@ src/main/java/com/usermanagement/
 
 1. Email is the unique identifier used for authentication (not username)
 2. Default `ROLE_USER` is auto-assigned on registration if it exists in the DB
-3. JWT secret is configured in `application.yml` — in production, use environment variables or a secrets manager
-4. RabbitMQ connection failures are logged but do not block registration/login (graceful degradation)
-5. `ddl-auto: update` is used for convenience — use Flyway/Liquibase for production migrations
-6. Caching uses in-memory `ConcurrentMapCacheManager` — use Redis for distributed caching in production
+3. JWT secret is configured in `application.yml`
+4. Kafka connection failures are logged but do not block registration/login
+5. `ddl-auto: update` is used for Convenience — use formal migrations for production
+6. Caching uses in-memory `ConcurrentMapCacheManager`
