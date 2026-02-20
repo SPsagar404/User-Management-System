@@ -4,7 +4,7 @@ Enterprise-grade User Management System with Role-Based Access Control (RBAC), J
 
 ---
 
-## 🏗️ Architecture
+<!-- ## 🏗️ Architecture
 
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -29,7 +29,7 @@ Enterprise-grade User Management System with Role-Based Access Control (RBAC), J
     ┌────▼────┐   ┌────▼────┐
     │ MySQL   │   │ Kafka   │
     └─────────┘   └─────────┘
-```
+``` -->
 
 ### Layered Pattern
 
@@ -194,7 +194,7 @@ src/main/java/com/usermanagement/
 ```
 
 ---
-
+<!-- 
 ## 📋 Design Decisions
 
 | Decision | Rationale |
@@ -208,15 +208,15 @@ src/main/java/com/usermanagement/
 | **Manual DTO mapping** | No annotation processor dependency; explicit control |
 | **H2 for tests** | Fast, zero-config test database |
 | **Multi-stage Docker build** | Smaller production implementation footprint |
-| **Excluding Kafka in Tests** | Tests use mocks for `KafkaTemplate` to remain fast and standalone |
+| **Excluding Kafka in Tests** | Tests use mocks for `KafkaTemplate` to remain fast and standalone | -->
 
 ---
 
-## ⚠️ Assumptions
+<!-- ## ⚠️ Assumptions
 
 1. Email is the unique identifier used for authentication (not username)
 2. Default `ROLE_USER` is auto-assigned on registration if it exists in the DB
 3. JWT secret is configured in `application.yml`
 4. Kafka connection failures are logged but do not block registration/login
 5. `ddl-auto: update` is used for Convenience — use formal migrations for production
-6. Caching uses in-memory `ConcurrentMapCacheManager`
+6. Caching uses in-memory `ConcurrentMapCacheManager` -->
